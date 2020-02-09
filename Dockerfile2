@@ -1,0 +1,11 @@
+FROM python:3.6
+
+RUN pip install flask --upgrade
+RUN pip install azure-cosmos --upgrade
+
+COPY /web_server.py /web_server.py
+
+RUN chmod +x /web_server.py
+
+ENTRYPOINT ["/web_server.py"]
+

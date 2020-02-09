@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maximus-front
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maximus-front
+  template:
+    metadata:
+      labels:
+        app: maximus-front
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: maximus-front
+        image: maximus.azurecr.io/telegram/webserver:latest
+        env:
+        - name: COSMOS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: telegram-secret
+              key: cosmos-key
+        - name: COSMOS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: telegram-secret
+              key: cosmos-host
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        ports:
+        - containerPort: 80
+      imagePullSecrets:
+      - name: docker-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maximus-telegram-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maximus-telegram-bot
+  template:
+    metadata:
+      labels:
+        app: maximus-telegram-bot
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: maximus-telegram-bot
+        image: maximus.azurecr.io/telegram/testbot:latest
+        env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: telegram-secret
+              key: token
+        - name: COSMOS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: telegram-secret
+              key: cosmos-key
+        - name: COSMOS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: telegram-secret
+              key: cosmos-host
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+      imagePullSecrets:
+      - name: docker-secret
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: maximus-front
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+  selector:
+    app: maximus-front
