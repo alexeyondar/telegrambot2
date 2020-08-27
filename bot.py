@@ -16,16 +16,16 @@ bot.
 import logging
 import os
 import azure.cosmos.cosmos_client as cosmos_client
-import uuid
+import requests
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
-
 logger = logging.getLogger(__name__)
+
+BACKEND_ENDPOINT = 'http://backend/api/generate'
 
 
 def init_db():
@@ -36,7 +36,6 @@ def init_db():
 
 
 def store_stats(user, url, url_short):
-
     client = init_db()
     database_name = 'telegram-bot'
     container_name = 'statistics'
@@ -52,40 +51,10 @@ def store_stats(user, url, url_short):
     }
     client.UpsertItem("dbs/" + database_name + "/colls/" + container_name, cosmos_data)
 
-def store_url(url, url_short):
 
-    client = init_db()
-    database_name = 'telegram-bot'
-    container_name = 'urls'
+def call_backend(url):
 
-    cosmos_data = {
-        'id': 'IDIDIDID-234',
-        'url': url,
-        'url_short': url_short
-    }
-    client.UpsertItem("dbs/" + database_name + "/colls/" + container_name, cosmos_data)
-
-
-def get_from_db(url):
-
-    client = init_db()
-    database_name = 'telegram-bot'
-    container_name = 'urls'
-    result = None
-
-    query = 'SELECT r.url_short FROM ' + container_name + ' r WHERE r.url="' + url + '"'
-    query_result = client.QueryItems("dbs/" + database_name + "/colls/" + container_name, query,
-                                  {'enableCrossPartitionQuery': True})
-    for item in query_result:
-        result = item['url_short']
-
-    return result
-
-
-def url_cutter():
-    url_short = '{}'.format(uuid.uuid4().hex.upper()[0:10])
-    return url_short
-
+    return requests.post(BACKEND_ENDPOINT, data={'url': url}).text
 
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
@@ -104,14 +73,10 @@ def url(update, context):
     update.message.reply_text('Working...')
     user = update.message.from_user
     url = update.message.text
-    domain = '20.40.139.44'
-    url_short = get_from_db(url)
-    if url_short is None:
-        url_short = url_cutter()
-        store_url(url, url_short)
+    link = call_backend(url)
 
-    store_stats(user, url, url_short)
-    update.message.reply_text('Short link: http://{}/{}'.format(domain, url_short))
+    store_stats(user, url, link)
+    update.message.reply_text('Short link: {}'.format(link))
 
 
 def echo(update, context):
@@ -151,7 +116,6 @@ def main():
     # SIGTERM or SIGABRT. This should be used most of the time, since
     # start_polling() is non-blocking and will stop the bot gracefully.
     updater.idle()
-
 
 if __name__ == '__main__':
     main()
